@@ -1,49 +1,52 @@
 const fetch = require("node-fetch");
 
-// Uses Gemini's free-tier API. Set GEMINI_API_KEY as an environment variable on Render.
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 async function generatePost(topic) {
   const prompt = `Write a complete, engaging blog post (500-700 words) about this trending topic: "${topic}".
-Return your response as JSON only, with no markdown formatting, in exactly this shape:
+Return your response as JSON only, with no markdown formatting, no code fences, in exactly this shape:
 {"title": "a catchy blog post title", "content": "the full blog post text"}`;
 
-  const response = await fetch(GEMINI_URL, {
+  const response = await fetch(GROQ_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${GROQ_API_KEY}`
+    },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }]
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7
     })
   });
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`Gemini API error: ${response.status} ${errText}`);
+    throw new Error(`Groq API error: ${response.status} ${errText}`);
   }
 
   const data = await response.json();
-  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  const rawText = data.choices?.[0]?.message?.content;
 
   if (!rawText) {
-    throw new Error("Gemini returned no content");
+    throw new Error("Groq returned no content");
   }
 
-  // Strip accidental markdown code fences before parsing JSON
   const cleaned = rawText.replace(/```json|```/g, "").trim();
 
   let parsed;
   try {
     parsed = JSON.parse(cleaned);
   } catch (e) {
-    throw new Error("Failed to parse Gemini response as JSON: " + cleaned.slice(0, 200));
+    throw new Error("Failed to parse Groq response as JSON: " + cleaned.slice(0, 200));
   }
 
   if (!parsed.title || !parsed.content) {
-    throw new Error("Gemini response missing title or content");
+    throw new Error("Groq response missing title or content");
   }
 
-  return parsed; // { title, content }
+  return parsed;
 }
 
 module.exports = { generatePost };
