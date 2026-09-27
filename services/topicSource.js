@@ -1,27 +1,29 @@
 const fetch = require("node-fetch");
 
-// Pulls the top trending post titles from a subreddit (free, no API key needed).
-// Change "technology" to whatever niche your blog is about.
-const SUBREDDIT = process.env.SUBREDDIT || "technology";
+const COUNTRY = process.env.TRENDS_COUNTRY || "US";
 
 async function getTrendingTopic() {
-  const url = `https://www.reddit.com/r/${SUBREDDIT}/top.json?limit=10&t=day`;
+  const url = `https://trends.google.com/trending/rss?geo=${COUNTRY}`;
   const response = await fetch(url, {
-    headers: { "User-Agent": "ai-blog-topic-fetcher/1.0" }
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; ai-blog-topic-fetcher/1.0)" }
   });
 
   if (!response.ok) {
-    throw new Error(`Reddit fetch failed: ${response.status}`);
+    throw new Error(`Google Trends fetch failed: ${response.status}`);
   }
 
-  const data = await response.json();
-  const posts = data.data.children.map((child) => child.data.title);
+  const xml = await response.text();
 
-  if (posts.length === 0) {
-    throw new Error("No trending topics found");
+  const matches = [...xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>/g)];
+  const topics = matches
+    .map((m) => m[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim())
+    .filter(Boolean);
+
+  if (topics.length === 0) {
+    throw new Error("No trending topics found in Google Trends feed");
   }
 
-  return posts; // returns an array of candidate topic titles
+  return topics.slice(0, 10);
 }
 
 module.exports = { getTrendingTopic };
