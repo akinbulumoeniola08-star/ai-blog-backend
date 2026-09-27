@@ -1,17 +1,16 @@
 const express = require("express");
 const cors = require("cors");
 const { pool, ensureSchema } = require("./db");
+const { generateAndSave } = require("./services/generateAndSave");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health check - visiting the root URL should just show this works
 app.get("/", (req, res) => {
   res.send("AI Blog backend is running.");
 });
 
-// Get all posts, newest first (this is what your Netlify site will call)
 app.get("/api/posts", async (req, res) => {
   try {
     const result = await pool.query(
@@ -24,7 +23,6 @@ app.get("/api/posts", async (req, res) => {
   }
 });
 
-// Get a single post by id (for a post detail page)
 app.get("/api/posts/:id", async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM posts WHERE id = $1", [req.params.id]);
@@ -35,6 +33,22 @@ app.get("/api/posts/:id", async (req, res) => {
   } catch (err) {
     console.error("Error fetching post:", err);
     res.status(500).json({ error: "Failed to fetch post" });
+  }
+});
+
+app.get("/api/generate", async (req, res) => {
+  const secret = req.query.secret;
+  if (!process.env.GENERATE_SECRET || secret !== process.env.GENERATE_SECRET) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const result = await generateAndSave();
+    console.log("Generate result:", result);
+    res.json(result);
+  } catch (err) {
+    console.error("Generate failed:", err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
