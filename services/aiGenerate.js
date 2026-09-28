@@ -15,7 +15,7 @@ Return your response as JSON only, with no markdown formatting, no code fences, 
       Authorization: `Bearer ${GROQ_API_KEY}`
     },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7
     })
